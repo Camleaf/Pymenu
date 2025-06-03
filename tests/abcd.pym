@@ -1,0 +1,11 @@
+// EVERYTHING MUST HAVE ITS OWN LINE OR COMPILER WILL THROW AN ERROR.
+;;styles < './tests/abcd.json'
+
+>frame id='welcome'
+>div class='abc' style='width:100/height:100' id='abc'
+
+        ;;markdown < './tests/efgh.pym'
+    >/div
+
+    ;;markdown < './tests/efgh.pym'
+>/frame
