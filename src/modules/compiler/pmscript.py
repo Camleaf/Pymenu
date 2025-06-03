@@ -482,4 +482,4 @@ class Compiler:
         self.parent_stack.pop()
 
 
-# Todo. Add text support
+# Todo. Add text piece support, button support, textbox support, reactive state support
