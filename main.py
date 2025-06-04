@@ -1,6 +1,6 @@
-from src.modules.compiler.pmscript import Compiler
+import src as mu
 
+compiler = mu.Compiler('./tests/abcd.pym')
 
-compiler = Compiler('./tests/abcd.pym')
-
-print(compiler.compiled)
+print(' ')
+print(*compiler.compiled,sep='\n')

@@ -1,6 +1,6 @@
 from typing import Self, Any
 import json
-from .logging import log, LogLevel, reset_log
+from ..logging import log, LogLevel, reset_log
 
 # great youtube series: https://www.youtube.com/watch?v=3PW552YHwy0&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD&index=5
 
@@ -16,7 +16,7 @@ CONTINUE = True
 ##################
 
 ILLEGAL_DATA_NAMESPACES = [">",";","{","}","\'","\"","=","#","<"]
-KEYWORDS = ['class','id','style']
+KEYWORDS = ['class','id','style','role']
 RESERVED_NAMEVALUES = ['GLOBAL']
 
 T_ADVANCE = 'T_ADVANCE'
@@ -58,7 +58,7 @@ class Token:
 SYNTAX_TREE = { 
     
     ##############################################################
-    "OPEN_ELEMENT":"T_ADVANCE$T_NAMEVALUE?T_KW$T_EQ$T_DATAVALUE",
+    "OPEN_ELEMENT":"T_ADVANCE$T_NAMEVALUE?T_NAMEVALUE$T_EQ$T_DATAVALUE",
     "CLOSE_ELEMENT":"T_ADVANCE$T_FSLASH$T_NAMEVALUE?NONE",
     "COMMENT":"T_FSLASH$T_FSLASH?ANY",
     "IMPORT":"T_SEMICOLON$T_SEMICOLON$T_NAMEVALUE$T_BACK$T_DATAVALUE?NONE",
@@ -71,15 +71,24 @@ _past_ids = []
 class Element:
     type:str
     parent_id:str
+    children:list[Self]
+    style: dict[str,str]
+    scoped_styles:dict
+    children_allowed:bool
+    required={}
+    top:int=0
+    left:int=0
+    width:int=0
+    height:int=0
 
-    def __init__(self, type_:str, parent_id:str|None, style:dict[str,str]={}, id_:str=None, value:str='', scoped_styles:dict={}):
+    def __init__(self, type_:str, parent_id:str|None, style:dict[str,str]={}, id_:str=None, scoped_styles:dict={}, children_allowed:bool=True):
         self.type = type_
         self.id = id_
         self.parent_id:str = parent_id
         self.children = []
         self.style = style
-        self.value = value
         self.scoped_styles = scoped_styles
+        self.children_allowed = children_allowed
 
         if not self.id:
             self.id = _create_id(self)
@@ -87,11 +96,48 @@ class Element:
             _past_ids.append(self.id)
 
     def __repr__(self):
-        # return f'ID: {self.id} ; TYPE: {self.type} ; Parent_ID: {str(self.parent_id)} ; STYLE_TAGS: {self.style}'
-        return f'{self.type}'
+        return f'ID: `{self.id}` ; TYPE: `{self.type}` ; Parent_ID: `{str(self.parent_id)}` ; STYLE_TAGS: `{self.style}`;'
+        # return f'{self.type}'
 
     def __str__(self):
-        return f'{self.id}'
+        return f'ID: `{self.id}` ; TYPE: `{self.type}` ; Parent_ID: `{str(self.parent_id)}` ; STYLE_TAGS: `{self.style}`;'
+
+class ImageElement(Element):
+    image_path:str
+    required={
+        "src":[]
+    }
+    def __init__(self, parent_id:str, style:dict[str,str]={},id_:str=None,src:str=''):
+        super().__init__('image',parent_id,style,id_,{},False)
+        self.src = src
+
+
+class TextElement(Element):
+    text:str
+    modifiable:bool
+    required={
+        "text":[],
+        "modifiable":["True", "False"]
+    }
+    def __init__(self, parent_id:str,style:dict[str,str]={},id_:str=None,text:str='',modifiable:str="False"):
+        super().__init__('text',parent_id,style,id_,{},False)
+        self.text = text
+        self.modifiable = modifiable
+    def __str__(self):
+        return f'ID: `{self.id}` ; TYPE: `{self.type}` ; Parent_ID: `{str(self.parent_id)}` ; STYLE_TAGS: `{self.style}`;\n Text: `{self.text}`\n'
+
+class DivElement(Element):
+    required={}
+    def __init__(self, parent_id:str,style:dict[str,str]={},id_:str=None):
+        super().__init__('div',parent_id,style,id_,{},True)
+
+class FrameElement(Element):
+    required={}
+    def __init__(self,parent_id:str,style:dict[str,str]={},id_:str=None):
+        super().__init__('frame', parent_id, style, id_, {}, True)
+
+
+
 def _create_id(object:Element):
 
     id_suffix = 0
@@ -101,6 +147,14 @@ def _create_id(object:Element):
         id_suffix += 1
     _past_ids.append(id)
     return id
+#############################################################
+
+ELEMENTS:list[Element] = {
+    "div":DivElement,
+    "frame":FrameElement,
+    "image":ImageElement,
+    "text":TextElement
+}
 
 ##############################################################
 
@@ -132,7 +186,12 @@ class ImportFailed(Error):
 
 class NameSpaceError(Error):
     def __init__(self, line_number:int=None, line:str='', namevalue=''):
-        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  Namespace Error: {namevalue} reserved for system use"
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  Namespace Error: {namevalue} not a valid name"
+        super().__init__(text)
+
+class ScopeError(Error):
+    def __init__(self, line_number:int=None, line:str=''):
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  Identifier not allowed in current scope"
         super().__init__(text)
 ##################
 # LEXER
@@ -165,22 +224,22 @@ class Lexer:
     def make_tokens(self):
         for i, char in enumerate(self.text):
             
-            self.mode[-1](char) # The top of the stack is what is executed
+            self.mode[-1](char) # The top of the stack is the capture method that is executed
+
+        
+        ####### To clear up any escaped builds #######
 
         if self.mode[-1] == self.value_search: # This logic is to capture any components at the end of the string
             raise StringNotEnded(self.index, self.text)
         
         elif self.current_build != '':
-            self.tokens.append(Token(T_NAMEVALUE,self.current_build))
+            self.tokens.append(Token(T_NAMEVALUE,self.current_build.strip()))
 
     ##############################################################
 
     def flush_build(self):
-        if self.current_build in KEYWORDS:
-            self.tokens.append(Token(T_KW,self.current_build))
-            self.current_build = ''
-        elif self.current_build != '':
-            self.tokens.append(Token(T_NAMEVALUE,self.current_build))
+        if self.current_build != '':
+            self.tokens.append(Token(T_NAMEVALUE,self.current_build.strip()))
         self.current_build = ''
 
     def default_search(self,char:str):
@@ -234,11 +293,11 @@ class Lexer:
 
     def value_search(self, char:str):
         if char == '\'':
-            self.tokens.append(Token(T_DATAVALUE,self.current_build))
+            self.tokens.append(Token(T_DATAVALUE,self.current_build.strip()))
             self.current_build = ''
             self.mode.pop()
-        elif char in ILLEGAL_DATA_NAMESPACES:
-            raise IllegalCharError(self.index,self.text, char)
+        # elif char in ILLEGAL_DATA_NAMESPACES:
+        #     raise IllegalCharError(self.index,self.text, char)
         else:
             self.current_build += char
             
@@ -255,7 +314,7 @@ class Compiler:
 
     def __init__(self, path:str): # Use token patterns to figure out what type the line is
         self.lexer = Lexer()
-        self.global_scope = Element(type_="GLOBAL",id_="GLOBAL", parent_id=None,style={})
+        self.global_scope = Element(type_="global",id_="global", parent_id=None,style={})
         self.parent_stack = [self.global_scope]
         self.compiled = [self.global_scope]
         self.path = path
@@ -308,6 +367,7 @@ class Compiler:
             line = self.uncompiled[self.index]
 
 
+
             self.lexer.new_line(line,self.index+1)
             if not self.lexer.tokens: 
                 self.index += 1
@@ -315,8 +375,11 @@ class Compiler:
 
             syntax_type = self.match_tokens(self.lexer.tokens,line)
             
-            
-            if syntax_type == "COMMENT":
+            if self.parent_stack[-1].type == 'text' and syntax_type != "CLOSE_ELEMENT":
+                if self.parent_stack[-1].text: self.parent_stack[-1].text +=  '\n'
+                self.parent_stack[-1].text +=  line.strip()
+
+            elif syntax_type == "COMMENT":
                 ...
             
             elif syntax_type == "IMPORT":
@@ -327,10 +390,10 @@ class Compiler:
             
             elif syntax_type == "CLOSE_ELEMENT":
                 self.handle_close_element(self.lexer.tokens,line,syntax_type)
-            
+                ...
             else:
-                raise SyntaxError()
-            print(self.parent_stack, "\n",)
+                raise SyntaxIncorrect(self.index,line,"Syntax Error. Perhaps you forgot an identifier?")
+            # print(self.parent_stack, "\n",) For checking scope
 
             self.index += 1
     
@@ -350,8 +413,6 @@ class Compiler:
                 if i == len(self.syntax_tree[key]['identifier'])-1:
                     syntax_type = key
 
-        if not syntax_type:
-            raise SyntaxIncorrect(self.index,line,"Syntax Error. Perhaps you forgot an identifier?")
 
         # print(syntax_type)
         return syntax_type
@@ -361,6 +422,9 @@ class Compiler:
     def handle_import(self,tokens:list[Token],line):
         import_type = tokens[2]
         path = tokens[4]
+
+        if not self.parent_stack[-1].children_allowed:
+            raise ScopeError(self.index,line)
         # import type and path are static always so I can assign them like that
 
         self.uncompiled[self.index] = ''
@@ -382,6 +446,10 @@ class Compiler:
 
     
     def handle_open_element(self,tokens:list[Token],line:str,syntax_type:str):
+
+        if not self.parent_stack[-1].children_allowed:
+            raise ScopeError(self.index,line)
+        
         tok_types = []
         for tok in tokens:
             tok_types.append(tok.get_type())
@@ -389,18 +457,23 @@ class Compiler:
         # some basic reserved namespace stuff
         type_ = tokens[1].value
         
-        if type_ in RESERVED_NAMEVALUES: # Check to make sure the user isn't overwriting global or something
+        if type_ not in ELEMENTS.keys(): # Check to make sure the user only uses predefined elements
             raise NameSpaceError(self.index,line,type_)
         
         options_structure = self.syntax_tree[syntax_type]['options']
         type_search_index = 0
         seen_keywords = []
 
-        datapoints = {
+        datapoints = { # this is for hardcoded stuff with a lot of searching
             "class":'',
             "style":'',
-            "id":''
+            "id":'',
         }
+        required_operands = ELEMENTS[type_].required # this is for element-specific datapoints with little formatting
+        
+        operands = {}
+        operand_restrict = {x:required_operands[x] for x in required_operands.keys()} # to restrict what kind of inputs are valid format
+        
         cur_kw:str = ''
         cur_val:str = ''
         for i,tok in enumerate(tokens[2:]): # past the element declaration
@@ -408,15 +481,17 @@ class Compiler:
                 raise SyntaxIncorrect(self.index, line, f"Syntax Error. {tok.get_type()} not in right place or not supported in OPTIONS structure {options_structure}.")
             
             # Keyword checking
-            if tok.get_type() == T_KW:
+            if tok.get_type() == T_NAMEVALUE:
                 if tok.value in seen_keywords: 
-                    raise SyntaxIncorrect(self.index, line, f"Syntax Error. {tok.get_type()} used twice.")
+                    raise SyntaxIncorrect(self.index, line, f"Syntax Error: {tok.value} used twice.")
+                elif tok.value not in datapoints.keys() and tok.value not in required_operands:
+                    raise SyntaxIncorrect(self.index, line, f"Syntax Error: {tok.value} not a valid operand.")
                 cur_kw = tok.value
                 seen_keywords.append(tok.value)
 
             # Datavalue checking
             if tok.get_type() == T_DATAVALUE:
-                cur_val = tok.value
+                cur_val = tok.value.strip()
 
             # structure completion / increment
             type_search_index += 1 # increment structure
@@ -424,14 +499,24 @@ class Compiler:
 
             if type_search_index == 0:
                 if not cur_kw or not cur_val:
-                    raise SyntaxIncorrect(self.index,line,f"Syntax Error. Error with OPTION values")
+                    raise SyntaxIncorrect(self.index,line,f"Syntax Error: Error with operand values")
+                if cur_kw in datapoints.keys(): # If its a hardcoded datapoint
+                    datapoints[cur_kw] = cur_val
+                elif cur_kw in operand_restrict.keys(): # If its a element-specific datapoint
+                    
+                    if len(operand_restrict[cur_kw]) != 0:
+                        
+                        if cur_val not in operand_restrict[cur_kw]:
+                            raise SyntaxIncorrect(self.index,line,f"Syntax Error: {cur_val} not valid assignment to {cur_kw}")
+                        
 
-                datapoints[cur_kw] = cur_val
+                    operands[cur_kw] = cur_val
+                
                 cur_kw,cur_val = '',''
 
         
         if type_search_index != 0: # Raise error if structure is unfinished
-            raise SyntaxIncorrect(self.index, line, f"Syntax Error. OPTIONS structure {options_structure} not completed, missing elements {options_structure[type_search_index:]}.")
+            raise SyntaxIncorrect(self.index, line, f"Syntax Error. Operand structure {options_structure} not completed, missing elements {options_structure[type_search_index:]}.")
         # print(datapoints)
 
 
@@ -457,8 +542,10 @@ class Compiler:
         
         if not datapoints['id']:
             datapoints['id'] = None
-
-        current = Element(type_,self.parent_stack[-1].id,style,datapoints['id'],value='')
+        
+        method = ELEMENTS[type_]
+        
+        current = method(self.parent_stack[-1].id,style,datapoints['id'],**operands)
         self.parent_stack[-1].children.append(current)
         self.parent_stack.append(current)
         self.compiled.append(current)

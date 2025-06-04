@@ -2,7 +2,16 @@
 ;;styles < './tests/abcd.json'
 
 >frame id='welcome'
->div class='abc' style='width:100/height:100' id='abc'
+    >div class='abc' style='width:100/height:100' id='abc'
+        >text id='hi' modifiable='True'
+            dfosjdoijoijwejfpsdjofsd0gioie0inoufnsodiuno
+        >/text
+        
+        // Maybe I could try to add the double | symbol for newline syntax. That would be a later thing though
+
+        >image src='pathdetectionnotworking'
+        >/image
+
 
         ;;markdown < './tests/efgh.pym'
     >/div
