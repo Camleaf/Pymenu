@@ -93,6 +93,8 @@ class Element:
         if not self.id:
             self.id = _create_id(self)
         else:
+            if self.id in _past_ids:
+                log(f"ID {self.id} already exists. This overwrites the previous element.", LogLevel.WARNING)
             _past_ids.append(self.id)
 
     def __repr__(self):
@@ -135,6 +137,35 @@ class FrameElement(Element):
     required={}
     def __init__(self,parent_id:str,style:dict[str,str]={},id_:str=None):
         super().__init__('frame', parent_id, style, id_, {}, True)
+
+
+
+class State: 
+    # So this state function will work by being defined inside of the compiledfiles with an initial value
+    # Then it will act as an object which supplies values to it's dependencies
+    # It will share its pointers with Python variables through a function which grabs it
+    # Whenever those variables update the object, the changes propogate
+    # This allows me to restrict state and check for errors if it isn't defined
+    # It also allows me to build the dependency trees as the code compiles, as it is defined in code
+    # All states will be hoisted to GLOBAL scope
+
+    value:str|int|float
+    name:str
+
+    def __init__(self,name):
+        self.__dependant = []
+        self.name = name
+
+    def __setattr__(self, name, value):
+        if type(value) not in [str,int,float]:
+            raise StateTypeError()
+        self.__dict__[name] = value
+    
+    def __getattribute__(self, name):
+        if not self.__dict__.get(name,None):
+            raise StateNotInitializedError(self.name)
+        return self.__dict__[name]
+    
 
 
 
@@ -186,13 +217,27 @@ class ImportFailed(Error):
 
 class NameSpaceError(Error):
     def __init__(self, line_number:int=None, line:str='', namevalue=''):
-        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  Namespace Error: {namevalue} not a valid name"
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  NamespaceError: {namevalue} not a valid name"
         super().__init__(text)
 
 class ScopeError(Error):
     def __init__(self, line_number:int=None, line:str=''):
-        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  Identifier not allowed in current scope"
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  ScopeError: Identifier not allowed in current scope"
         super().__init__(text)
+
+class FrameRequiredError(Error):
+    def __init__(self, line_number:int=None, line:str='', type_:str=''):
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  FrameRequiredError: Element {type_} requires a frame to be under Global scope"
+        super().__init__(text)
+
+class StateTypeError(Exception):
+    def __init__(self):
+        text = f"StateTypeError: State only accepts types STR | INT | FLOAT"
+        super().__init__(message=text)
+
+class StateNotInitializedError(Exception):
+    def __init__(self,name):
+        text = f"StateTypeError: State {name} not initialized upon first usage"
 ##################
 # LEXER
 ##################
@@ -316,7 +361,7 @@ class Compiler:
         self.lexer = Lexer()
         self.global_scope = Element(type_="global",id_="global", parent_id=None,style={})
         self.parent_stack = [self.global_scope]
-        self.compiled = [self.global_scope]
+        self.compiled:dict[str,Element] = {"global":self.global_scope}
         self.path = path
         self.uncompiled = []
         self.index = 0
@@ -449,7 +494,7 @@ class Compiler:
 
         if not self.parent_stack[-1].children_allowed:
             raise ScopeError(self.index,line)
-        
+
         tok_types = []
         for tok in tokens:
             tok_types.append(tok.get_type())
@@ -460,6 +505,14 @@ class Compiler:
         if type_ not in ELEMENTS.keys(): # Check to make sure the user only uses predefined elements
             raise NameSpaceError(self.index,line,type_)
         
+        # special handling for frame element
+        if type_ == 'frame' and not self.parent_stack[-1].type=='global':
+            raise ScopeError(self.index,line)
+        elif type_ != 'frame' and self.parent_stack[-1].type == 'global':
+            raise FrameRequiredError(self.index,line,type_)
+
+
+
         options_structure = self.syntax_tree[syntax_type]['options']
         type_search_index = 0
         seen_keywords = []
@@ -543,13 +596,13 @@ class Compiler:
         if not datapoints['id']:
             datapoints['id'] = None
         
-        method = ELEMENTS[type_]
+        method = ELEMENTS[type_] # grab the specific element type based on type index
         
-        current = method(self.parent_stack[-1].id,style,datapoints['id'],**operands)
+        current:Element = method(self.parent_stack[-1].id,style,datapoints['id'],**operands) # ah yes dictionary unpacking gotta love how useful that is
         self.parent_stack[-1].children.append(current)
         self.parent_stack.append(current)
-        self.compiled.append(current)
-
+        self.compiled[current.id] = current
+ 
 
     ##############################################################
         
@@ -569,4 +622,6 @@ class Compiler:
         self.parent_stack.pop()
 
 
-# Todo. Add text piece support, button support, textbox support, reactive state support
+# Todo. Add reactive state support and some things around frames. 
+# For example, the only element layer allowed after global should be frame. 
+# Frames also shouldn't able to be put inside other frames

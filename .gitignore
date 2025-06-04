@@ -2,3 +2,4 @@
 /oldpymenu.txt
 /pymdump.txt
 /pyproject.toml
+__pycache__/*
