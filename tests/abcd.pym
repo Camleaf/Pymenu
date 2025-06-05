@@ -1,17 +1,16 @@
 // EVERYTHING MUST HAVE ITS OWN LINE OR COMPILER WILL THROW AN ERROR.
 ;;styles < './tests/abcd.json'
 
-// State functions not defined in code yet and will throw error so are currently closed
-// They will be defined with the ;$ NameValue < DataValue syntax, where datavalue is the initial value of the state of name NameValue
 
-//   ;$heightState < '100'
-//   ;$textState < 'warblerrreuios'
+;$heightState < '100'
+;$textState < 'warblerrreuios'
 
 
 >frame id='welcome'
-    >div class='abc' style='width:100/height:$heightState' id='abc'
-        >text id='hi' modifiable='True'
-            $textState
+    >div class='abc' style='width:100/height:$$heightState' id='abc'
+    
+        >text id='hi' modifiable='False'
+            $$textState
         >/text
 
         // Maybe I could try to add the double | symbol for newline syntax. That would be a later thing though

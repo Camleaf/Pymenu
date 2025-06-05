@@ -29,6 +29,7 @@ T_FSLASH = 'T_FSLASH'
 T_EQ = 'T_EQ'
 T_KW = 'T_KW'
 T_BACK = 'T_BACK'
+T_DOLLAR = 'T_DOLLAR'
 
 class Token:
     def __init__(self, type_, value):
@@ -62,13 +63,18 @@ SYNTAX_TREE = {
     "CLOSE_ELEMENT":"T_ADVANCE$T_FSLASH$T_NAMEVALUE?NONE",
     "COMMENT":"T_FSLASH$T_FSLASH?ANY",
     "IMPORT":"T_SEMICOLON$T_SEMICOLON$T_NAMEVALUE$T_BACK$T_DATAVALUE?NONE",
+    "STATE":"T_SEMICOLON$T_DOLLAR$T_NAMEVALUE$T_BACK$T_DATAVALUE?NONE"
 }
 ##################
 # ELEMENTS
 ##################
 _past_ids = []
 
-class Element:
+class Element: 
+    # So I'm mostly done with state stuff I just need to add comprehension.
+    # Comprehension is not executed here. It will be executed upon compilation at render time, where the stuff needs to be iterated over anyways. 
+    # Once a state is found in place of a value, the comprehension code will find the value currently stored in the object the namespace is representing, and serve that to the user. 
+    # it will also serve to computed styles so that it is accessible by scripting code through the element
     type:str
     parent_id:str
     children:list[Self]
@@ -152,19 +158,22 @@ class State:
     value:str|int|float
     name:str
 
-    def __init__(self,name):
-        self.__dependant = []
-        self.name = name
+    def __init__(self,name, initial_value:str=None):
 
-    def __setattr__(self, name, value):
+        self.name = name
+        self.set(initial_value)
+    
+    def set(self,value):
         if type(value) not in [str,int,float]:
             raise StateTypeError()
-        self.__dict__[name] = value
+        self.value = value
     
-    def __getattribute__(self, name):
-        if not self.__dict__.get(name,None):
+    def get(self,value):
+        if not self.value:
             raise StateNotInitializedError(self.name)
-        return self.__dict__[name]
+        return self.value
+
+    
     
 
 
@@ -189,15 +198,14 @@ ELEMENTS:list[Element] = {
 
 ##############################################################
 
-class Error():
+class Error:
     def __init__(self,text:str='Error'):
         log(text,LogLevel.FATAL)
-        super().__init__(f"{text}")
+
 
 class IllegalCharError(Error):
-    def __init__(self, line_number:int=None, line:str='', char:str=''):
-        text = f"Illegal character `{char}`"
-        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  {text}"
+    def __init__(self, line_number:int=None, line:str='', char:str='', message='IllegalCharError: Illegal character'):
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >> {message} `{char}`"
         super().__init__(text)
 
 class StringNotEnded(Error):
@@ -230,14 +238,20 @@ class FrameRequiredError(Error):
         text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  FrameRequiredError: Element {type_} requires a frame to be under Global scope"
         super().__init__(text)
 
-class StateTypeError(Exception):
+class StateImplementError(Error):
+    def __init__(self, line_number:int=None, line:str='', message='State can not be applied in element with previous values'):
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  StateImplementError: {message}"
+        super().__init__(text)
+
+class StateTypeError(Error):
     def __init__(self):
         text = f"StateTypeError: State only accepts types STR | INT | FLOAT"
-        super().__init__(message=text)
+        super().__init__(text=text)
 
-class StateNotInitializedError(Exception):
+class StateNotInitializedError(Error):
     def __init__(self,name):
         text = f"StateTypeError: State {name} not initialized upon first usage"
+        super().__init__(text=text)
 ##################
 # LEXER
 ##################
@@ -330,7 +344,9 @@ class Lexer:
             self.flush_build()
             self.tokens.append(Token(T_BACK,char))
 
-
+        elif char == '$':
+            self.flush_build()
+            self.tokens.append(Token(T_DOLLAR,char))
         else:
             self.current_build += char
 
@@ -355,7 +371,7 @@ class Compiler:
     lexer:Lexer
     parent_stack:list[Element]
     compiled:list[Element]
-
+    states:dict[str,State]
 
     def __init__(self, path:str): # Use token patterns to figure out what type the line is
         self.lexer = Lexer()
@@ -363,6 +379,7 @@ class Compiler:
         self.parent_stack = [self.global_scope]
         self.compiled:dict[str,Element] = {"global":self.global_scope}
         self.path = path
+        self.states = {}
         self.uncompiled = []
         self.index = 0
         self.syntax_tree = dict()
@@ -409,7 +426,7 @@ class Compiler:
 
     def compile(self):
         while self.index < len(self.uncompiled):
-            line = self.uncompiled[self.index]
+            line:str = self.uncompiled[self.index].strip()
 
 
 
@@ -421,8 +438,7 @@ class Compiler:
             syntax_type = self.match_tokens(self.lexer.tokens,line)
             
             if self.parent_stack[-1].type == 'text' and syntax_type != "CLOSE_ELEMENT":
-                if self.parent_stack[-1].text: self.parent_stack[-1].text +=  '\n'
-                self.parent_stack[-1].text +=  line.strip()
+                self.handle_text(self.lexer.tokens,line,syntax_type)
 
             elif syntax_type == "COMMENT":
                 ...
@@ -435,7 +451,8 @@ class Compiler:
             
             elif syntax_type == "CLOSE_ELEMENT":
                 self.handle_close_element(self.lexer.tokens,line,syntax_type)
-                ...
+            elif syntax_type == "STATE":
+                self.handle_state(self.lexer.tokens,line,syntax_type)
             else:
                 raise SyntaxIncorrect(self.index,line,"Syntax Error. Perhaps you forgot an identifier?")
             # print(self.parent_stack, "\n",) For checking scope
@@ -511,8 +528,6 @@ class Compiler:
         elif type_ != 'frame' and self.parent_stack[-1].type == 'global':
             raise FrameRequiredError(self.index,line,type_)
 
-
-
         options_structure = self.syntax_tree[syntax_type]['options']
         type_search_index = 0
         seen_keywords = []
@@ -574,7 +589,10 @@ class Compiler:
 
 
         style = {}
-        if datapoints["class"]:
+        if datapoints["class"]: #state declaration is illegal here
+            if '$' in datapoints["class"]:
+                IllegalCharError(self.index,line,'$', "IllegalCharError: State definition not allowed in class value")
+
             for element in self.parent_stack[::-1]: # reverse iterate to find the most recently scope version of the class
                 if datapoints["class"] in element.scoped_styles:
                     
@@ -592,8 +610,22 @@ class Compiler:
 
                 key,value = raw
                 style[key] = value
+                contains_state = True
+                # check for state errors
+                if '$' in value:
+                    
+                    if not value.startswith('$$'):
+                        raise IllegalCharError(self.index,value,'$',f"IllegalCharError: Symbol reserved for reactive state usage applied incorrectly")
+                    elif not value.count('$') == 2:
+                        raise IllegalCharError(self.index,value,'$',f"IllegalCharError: Symbol reserved for reactive state usage applied incorrectly")
+                    contains_state = False
+
+                    if value[2:] not in self.states.keys(): # make the error for this
+                        raise StateImplementError(self.index,value,"State referenced which does not exist")
         
         if not datapoints['id']:
+            if '$' in datapoints["id"]: #state declaration is illegal here
+                IllegalCharError(self.index,line,'$', "IllegalCharError: State definition not allowed in id value")
             datapoints['id'] = None
         
         method = ELEMENTS[type_] # grab the specific element type based on type index
@@ -603,7 +635,6 @@ class Compiler:
         self.parent_stack.append(current)
         self.compiled[current.id] = current
  
-
     ##############################################################
         
         
@@ -621,7 +652,42 @@ class Compiler:
         
         self.parent_stack.pop()
 
+    ##############################################################
 
-# Todo. Add reactive state support and some things around frames. 
-# For example, the only element layer allowed after global should be frame. 
-# Frames also shouldn't able to be put inside other frames
+    def handle_state(self,tokens:list[Token],line:str,syntax_type:str):
+
+        if len(tokens) > 5:
+            return SyntaxIncorrect(self.index,line,f"CREATE_STATE argument does not take options")
+        
+        name = tokens[2].value
+        initial_value = tokens[4].value
+
+        current = State(name,initial_value.strip())
+        self.states[name] = current
+
+    ##############################################################
+
+    def handle_text(self, tokens:list[Token], line:str, syntax_type:str):
+        contains_state = True
+
+        if '$' in line: # handles if any state was found inside of a text element. If it is, it should overwrite the entire text element because I'm lazy
+            
+            if not line.startswith('$$'):
+                raise IllegalCharError(self.index,line,'$',f"IllegalCharError: Symbol reserved for reactive state usage applied incorrectly")
+            elif not line.count('$') == 2:
+                raise IllegalCharError(self.index,line,'$',f"IllegalCharError: Symbol reserved for reactive state usage applied incorrectly")
+            contains_state = False
+
+            if line[2:] not in self.states.keys(): # make the error for this
+                raise StateImplementError(self.index,line,"State referenced which does not exist")
+
+        if self.parent_stack[-1].text: # make the error for this
+            if contains_state:
+                StateImplementError(self.index,line)
+            self.parent_stack[-1].text +=  '\n'
+        
+        # i want it to add the line regardless, as it will get compiled in the element, most of this function is for checking state errors
+        self.parent_stack[-1].text +=  line 
+
+# Todo. Add rendering (don't forget to compile reactive state at that time)
+# also remake handle text so that other text can exist alongside reactive state, but figure out a way to separate the two
