@@ -44,37 +44,22 @@ class View:
         print(element.style)
         computed_styles = {}
 
-        calculated = deque([x for x in list(element.style.keys())])
-        seen_once = []
-        while calculated:
-            #This current method of computing styles will not work, as some styles are dependent on others
-            style = calculated.popleft()
-            # for example, top-left   and height/width percentages in conjunction with position: absolute or position:
 
-            #actually maybe it could work if I use dependencies and if the dependency of a style hasn't been calculated yet, 
-            # that style goes to the back. The second time a style is seen, it gets set to default value
-
-            #Ok so i made deps I jsut need to fix this
+        for style in element.style.keys():
             
             # On another not it looks like the deps solution time complexity is completely cooked so just go back to using
             # Python's ordering of lists to iterate through the styles.
 
-            dependencies = STYLES[style]['deps'] # If dependencies just delay it
-            if any(dependency in calculated for dependency in dependencies):
-                if style in seen_once:
-                    ... # assign dependencies default style here
-                else:
-                    calculated.append(style)
-                    seen_once.append(style)
-                    continue
-
+            # I added a bunch of default styles which work should generally with a bit of interpretation.
+            # Also after computing the base styles I will need to make individual functions for each type of class to decide
+            #          which of the styles to use, how to format them and whatnot.
 
             val:str = element.style[style]
             acceptable_types = STYLES[style]['types']
 
 
 
-            
+
             
 
 

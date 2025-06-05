@@ -43,17 +43,17 @@ class Token:
         return self.type
     
 STYLES = {
-    "height":{"types":['number', 'percentage'], "deps":["position"]},
-    "width":{"types":['number', 'percentage'], "deps":["position"]},
-    "top":{"types":['number', 'percentage'], "deps":["position"]},
-    "left":{"types":['number', 'percentage'], "deps":["position"]},
-    "rotation":{"types":['number'], "deps":[]},
-    "background":{"types":['rgbvalue'], "deps":[]},
-    "opacity":{"types":['number', 'percentage'], "deps":[]},
-    "corner-radius":{"types":['number'], "deps":[]},
-    "border-width":{"types":['number'], "deps":[]},
-    "border-color:":{"types":['rgbvalue'], "deps":[]},
-    "position":{"types":['text'], "deps":[]}
+    "position":{"types":['text'], "default":"relative"},
+    "height":{"types":['number', 'percentage'], "default":"0"},
+    "width":{"types":['number', 'percentage'], "default":"0"},
+    "top":{"types":['number', 'percentage'], "default":"0"},
+    "left":{"types":['number', 'percentage'], "default":"0"},
+    "rotation":{"types":['number'], "default":"0"},
+    "background":{"types":['rgbvalue'], "default":"None"},
+    "opacity":{"types":['number', 'percentage'], "default":"255"},
+    "corner-radius":{"types":['number'], "default":"0"},
+    "border-width":{"types":['number'], "default":"0"},
+    "border-color:":{"types":['rgbvalue'], "default":"None"},
 }
 
 ##################
