@@ -2,4 +2,4 @@ from .pmscript import \
     Compiler, Element, \
     DivElement, TextElement, \
     FrameElement, ImageElement, \
-    State
+    State, STYLES, PERCENTAGE_TRANSFORM 

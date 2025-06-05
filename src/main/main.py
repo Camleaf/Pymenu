@@ -1,5 +1,6 @@
 from ..compiler import *
 from ..utils.logging import LogLevel, log, reset_log
+import re
 import pygame as pg
 
 
@@ -23,24 +24,35 @@ class View:
         # Both the total elements group and frames group will modify each other because they are just pointing
         # to the same object
 
-        print(frames)
-
 
         self.render_down_scope('global')
-    
+
 
 
     def render_down_scope(self,id_:str):
         """Re-renders the object of the ID provided and all of it's children, 
         nothing else. Useful for only re-rendering a small scope"""
-        initial_object = self.elements[id_]
+        initial_object = self.elements['abc']
+        self.create_image_individual(initial_object)
     
 
 
 
-    def render_individual(self, element:Element):
+    def create_image_individual(self, element:Element):
         """Re-renders the styles for an individual element"""
-        ...
+        print(element.style)
+        computed_styles = {}
+
+        for style in element.style: #This current method of computing styles will not work, as some styles are dependent on others
+            # for example, top-left   and height/width percentages in conjunction with position: absolute or position: relative
+            val:str = element.style[style]
+            acceptable_types = STYLES[style]
+            type_:str = None
+
+            
+            
+
+
 
     
 

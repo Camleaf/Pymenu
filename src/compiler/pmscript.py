@@ -42,7 +42,19 @@ class Token:
     def get_type(self):
         return self.type
     
-
+STYLES = {
+    "height":['number', 'percentage'],
+    "width":['number', 'percentage'],
+    "top":['number', 'percentage'],
+    "left":['number', 'percentage'],
+    "rotation":['number'],
+    "background":['rgbvalue'],
+    "opacity":['number', 'percentage'],
+    "corner-radius":['number'],
+    "border-width":['number'],
+    "border-color:":['rgbvalue'],
+    "position":['text']
+}
 
 ##################
 # Syntax Tree
@@ -258,6 +270,11 @@ class StateTypeError(Error):
 class StateNotInitializedError(Error):
     def __init__(self,name):
         text = f"StateTypeError: State {name} not initialized upon first usage"
+        super().__init__(text=text)
+
+class StyleError(Error):
+    def __init__(self, line_number:int=None, line:str='', message='Style does not exist'):
+        text = f"\n\n\nLine {line_number}| \"    {line}    \"    >>  StyleError : {message}"
         super().__init__(text=text)
 ##################
 # LEXER
@@ -514,6 +531,8 @@ class Compiler:
             # This is to scope classes to their specific zones, so that styles can be overwritten in certain scopes
             for key in raw_styles:
                 self.parent_stack[-1].scoped_styles[key] = raw_styles[key]
+                if any(i not in STYLES.keys() for i in raw_styles[key]):
+                    raise StyleError(self.index,line,f"One or more styles from file `{path.value}` does not exist")
                 
     ##############################################################
 
@@ -633,6 +652,9 @@ class Compiler:
 
                     if value[2:] not in self.states.keys(): # make the error for this
                         raise StateImplementError(self.index,value,"State referenced which does not exist")
+                else:
+                    if key not in STYLES.keys():
+                        raise StyleError(self.index,line,f"Style `{key}` does not exist")
         
         if not datapoints['id']:
             if '$' in datapoints["id"]: #state declaration is illegal here

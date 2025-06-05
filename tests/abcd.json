@@ -1,9 +1,9 @@
 {
     "abc": {
-        "background":"blue"
+        "background":"(0,0,255)"
     },
 
     "def": {
-        "background":"red"
+        "background":"(255,0,0)"
     }
 }
