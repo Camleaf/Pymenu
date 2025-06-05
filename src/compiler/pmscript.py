@@ -379,6 +379,7 @@ class Compiler:
     parent_stack:list[Element]
     compiled:list[Element]
     states:dict[str,State]
+    frames:dict[str,list[State]]
 
     def __init__(self, path:str): # Use token patterns to figure out what type the line is
         self.lexer = Lexer()
@@ -387,6 +388,7 @@ class Compiler:
         self.compiled:dict[str,Element] = {"global":self.global_scope}
         self.path = path
         self.states = {}
+        self.frames = {}
         self.uncompiled = []
         self.index = 0
         self.syntax_tree = dict()
@@ -465,6 +467,8 @@ class Compiler:
             # print(self.parent_stack, "\n",) For checking scope
 
             self.index += 1
+        if len(self.parent_stack) > 1:
+            raise SyntaxIncorrect(self.index, line, f"At least one Element not closed. Try checking if you forgot a call of type CLOSE ELEMENT")
     
     ##############################################################
 
@@ -641,6 +645,11 @@ class Compiler:
         self.parent_stack[-1].children.append(current)
         self.parent_stack.append(current)
         self.compiled[current.id] = current
+
+        if type_ == 'frame':
+            self.frames[current.id] = []
+        else:
+            self.frames[list(self.frames.keys())[-1]].append(current)
  
     ##############################################################
         

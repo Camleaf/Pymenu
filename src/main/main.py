@@ -9,14 +9,38 @@ class View:
     states:dict[str,State]
     surf: pg.Surface
     size: list[int,int]
+    frames:dict[str,list[State]]
 
-    def __init__(self, elements:dict[str,Element], states:dict[str,State], size:list[int,int]):
+    def __init__(self, elements:dict[str,Element], states:dict[str,State], size:list[int,int], frames:dict[str,list[State]]):
         
         self.elements = elements
         self.states = states
+        self.frames = frames
         self.surf = pg.Surface(size)
         self.width = size[0]
         self.height = size[1]
+        # In the compiler, also make something which organizes the elements into their respective frames
+        # Both the total elements group and frames group will modify each other because they are just pointing
+        # to the same object
+
+        print(frames)
+
+
+        self.render_down_scope('global')
+    
+
+
+    def render_down_scope(self,id_:str):
+        """Re-renders the object of the ID provided and all of it's children, 
+        nothing else. Useful for only re-rendering a small scope"""
+        initial_object = self.elements[id_]
+    
+
+
+
+    def render_individual(self, element:Element):
+        """Re-renders the styles for an individual element"""
+        ...
 
     
 
@@ -35,6 +59,7 @@ def initialize(path:str, size:list[int,int]) -> View:
     compiler = Compiler(path)
     state_objects = compiler.states
     elements = compiler.compiled
-    return View(elements=elements,states=state_objects, size=size)
+    frames = compiler.frames
+    return View(elements=elements,states=state_objects, size=size, frames=frames)
 
 

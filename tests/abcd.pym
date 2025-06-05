@@ -24,3 +24,16 @@
 
     ;;markdown < './tests/efgh.pym'
 >/frame
+
+// In this version of Pymenu, frames will be able to layer on top of each other, hence "popup"
+// Frames are stylable. They default to filling the whole screen with a transparent color, located at top-left
+// They can be edited to suit your needs
+>frame id='popup'
+
+    >div style='width:20/height:200' id='rgb'
+        >text modifiable='False' id='PopupText'
+            This is a Popup window!
+        >/text
+    >/div
+
+>/frame
