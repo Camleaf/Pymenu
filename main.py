@@ -1,3 +1,3 @@
-import src as mu
+import src as pm
 
-View = mu.initialize('./tests/abcd.pym', [400,400])
+View = pm.initialize('./tests/abcd.pym', [400,400])
