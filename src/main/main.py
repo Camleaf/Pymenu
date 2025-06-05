@@ -1,6 +1,7 @@
 from ..compiler import *
 from ..utils.logging import LogLevel, log, reset_log
 import re
+from collections import deque
 import pygame as pg
 
 
@@ -43,11 +44,35 @@ class View:
         print(element.style)
         computed_styles = {}
 
-        for style in element.style: #This current method of computing styles will not work, as some styles are dependent on others
-            # for example, top-left   and height/width percentages in conjunction with position: absolute or position: relative
+        calculated = deque([x for x in list(element.style.keys())])
+        seen_once = []
+        while calculated:
+            #This current method of computing styles will not work, as some styles are dependent on others
+            style = calculated.popleft()
+            # for example, top-left   and height/width percentages in conjunction with position: absolute or position:
+
+            #actually maybe it could work if I use dependencies and if the dependency of a style hasn't been calculated yet, 
+            # that style goes to the back. The second time a style is seen, it gets set to default value
+
+            #Ok so i made deps I jsut need to fix this
+            
+            # On another not it looks like the deps solution time complexity is completely cooked so just go back to using
+            # Python's ordering of lists to iterate through the styles.
+
+            dependencies = STYLES[style]['deps'] # If dependencies just delay it
+            if any(dependency in calculated for dependency in dependencies):
+                if style in seen_once:
+                    ... # assign dependencies default style here
+                else:
+                    calculated.append(style)
+                    seen_once.append(style)
+                    continue
+
+
             val:str = element.style[style]
-            acceptable_types = STYLES[style]
-            type_:str = None
+            acceptable_types = STYLES[style]['types']
+
+
 
             
             

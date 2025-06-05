@@ -43,17 +43,17 @@ class Token:
         return self.type
     
 STYLES = {
-    "height":['number', 'percentage'],
-    "width":['number', 'percentage'],
-    "top":['number', 'percentage'],
-    "left":['number', 'percentage'],
-    "rotation":['number'],
-    "background":['rgbvalue'],
-    "opacity":['number', 'percentage'],
-    "corner-radius":['number'],
-    "border-width":['number'],
-    "border-color:":['rgbvalue'],
-    "position":['text']
+    "height":{"types":['number', 'percentage'], "deps":["position"]},
+    "width":{"types":['number', 'percentage'], "deps":["position"]},
+    "top":{"types":['number', 'percentage'], "deps":["position"]},
+    "left":{"types":['number', 'percentage'], "deps":["position"]},
+    "rotation":{"types":['number'], "deps":[]},
+    "background":{"types":['rgbvalue'], "deps":[]},
+    "opacity":{"types":['number', 'percentage'], "deps":[]},
+    "corner-radius":{"types":['number'], "deps":[]},
+    "border-width":{"types":['number'], "deps":[]},
+    "border-color:":{"types":['rgbvalue'], "deps":[]},
+    "position":{"types":['text'], "deps":[]}
 }
 
 ##################
