@@ -1,6 +1,6 @@
 from typing import Self, Any
 import json
-from ..logging import log, LogLevel, reset_log
+from ..utils.logging import log, LogLevel, reset_log
 
 ##################
 # Constants
@@ -686,4 +686,3 @@ class Compiler:
         self.parent_stack[-1].text +=  line 
 
 # Todo. Add rendering (don't forget to compile reactive state at that time)
-# also remake handle text so that other text can exist alongside reactive state, but figure out a way to separate the two
