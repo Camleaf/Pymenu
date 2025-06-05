@@ -1,4 +1,5 @@
 from typing import Self, Any
+import pygame as pg
 import json
 from ..utils.logging import log, LogLevel, reset_log
 
@@ -80,10 +81,7 @@ class Element:
     scoped_styles:dict
     children_allowed:bool
     required={}
-    top:int=0
-    left:int=0
-    width:int=0
-    height:int=0
+    surf:pg.Surface
 
     def __init__(self, type_:str, parent_id:str|None, style:dict[str,str]={}, id_:str=None, scoped_styles:dict={}, children_allowed:bool=True):
         self.type = type_
@@ -107,6 +105,17 @@ class Element:
 
     def __str__(self):
         return f'ID: `{self.id}` ; TYPE: `{self.type}` ; Parent_ID: `{str(self.parent_id)}` ; STYLE_TAGS: `{self.style}`;'
+
+    def get_surface(self) -> pg.Surface: 
+        # Render functions will be stored outside of this element, 
+        #I just thought it would be easier to store the surface data with the rest of the data
+        if not self.surf:
+            raise Error(f"Element of ID {self.id} gets surface called before defined")
+        return self.surf
+    
+    def set_surface(self, surface:pg.Surface):
+        self.surf = surface
+    
 
 class ImageElement(Element):
     image_path:str
@@ -373,7 +382,7 @@ class Compiler:
 
     def __init__(self, path:str): # Use token patterns to figure out what type the line is
         self.lexer = Lexer()
-        self.global_scope = Element(type_="global",id_="global", parent_id=None,style={})
+        self.global_scope = Element(type_="global",id_="global", parent_id=None,style={'width:100%/height:100%;'})
         self.parent_stack = [self.global_scope]
         self.compiled:dict[str,Element] = {"global":self.global_scope}
         self.path = path

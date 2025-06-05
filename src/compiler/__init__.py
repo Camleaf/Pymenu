@@ -1,4 +1,5 @@
 from .pmscript import \
     Compiler, Element, \
     DivElement, TextElement, \
-    FrameElement, ImageElement
+    FrameElement, ImageElement, \
+    State
