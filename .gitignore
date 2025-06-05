@@ -3,3 +3,4 @@
 /pymdump.txt
 /pyproject.toml
 __pycache__/*
+.pyc

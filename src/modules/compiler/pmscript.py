@@ -2,8 +2,6 @@ from typing import Self, Any
 import json
 from ..logging import log, LogLevel, reset_log
 
-# great youtube series: https://www.youtube.com/watch?v=3PW552YHwy0&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD&index=5
-
 ##################
 # Constants
 ##################
@@ -679,11 +677,9 @@ class Compiler:
             contains_state = False
 
             if line[2:] not in self.states.keys(): # make the error for this
-                raise StateImplementError(self.index,line,"State referenced which does not exist")
+                raise StateImplementError(self.index,line,"State referenced which does not exist. States inside text objects must only exist on individual lines, did you try to put it in text?")
 
         if self.parent_stack[-1].text: # make the error for this
-            if contains_state:
-                StateImplementError(self.index,line)
             self.parent_stack[-1].text +=  '\n'
         
         # i want it to add the line regardless, as it will get compiled in the element, most of this function is for checking state errors
