@@ -1,7 +1,7 @@
 /log.txt
 /oldpymenu.txt
 /pymdump.txt
-/pyproject.toml
+/pyproject.tomlS
 */__pycache__/
 .cpython-311.pyc
 
@@ -14,3 +14,4 @@ src/modules/compiler/__pycache__/pmscript.cpython-311.pyc
 src/utils/__pycache__/logging.cpython-311.pyc
 src/compiler/__pycache__/pmscript.cpython-311.pyc
 src/compiler/__pycache__/__init__.cpython-311.pyc
+.venv
