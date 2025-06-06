@@ -2,6 +2,7 @@ from typing import Self, Any
 import pygame as pg
 import json
 from ..utils.logging import log, LogLevel, reset_log
+# just as a reminder for future me to set editor font to consolas monospace
 
 ##################
 # Constants
@@ -43,17 +44,17 @@ class Token:
         return self.type
     
 STYLES = {
-    "position":{"types":['text'], "default":"relative"},
-    "height":{"types":['number', 'percentage'], "default":"0"},
-    "width":{"types":['number', 'percentage'], "default":"0"},
-    "top":{"types":['number', 'percentage'], "default":"0"},
-    "left":{"types":['number', 'percentage'], "default":"0"},
-    "rotation":{"types":['number'], "default":"0"},
-    "background":{"types":['rgbvalue'], "default":"None"},
-    "opacity":{"types":['number', 'percentage'], "default":"255"},
-    "corner-radius":{"types":['number'], "default":"0"},
-    "border-width":{"types":['number'], "default":"0"},
-    "border-color:":{"types":['rgbvalue'], "default":"None"},
+    "position":{"types":['text'], "default":"relative", "accepted":["relative","absolute"]},
+    "height":{"types":['number', 'percentage'], "default":0,"max":"parentheight"},
+    "width":{"types":['number', 'percentage'], "default":0,"max":"parentwidth"},
+    "top":{"types":['number', 'percentage'], "default":0,"max":"parentheight"},
+    "left":{"types":['number', 'percentage'], "default":0,"max":"parentwidth"},
+    "rotation":{"types":['number'], "default":0},
+    "background":{"types":['rgbvalue'], "default":None},
+    "opacity":{"types":['number', 'percentage'], "default":255, "max":255},
+    "corner-radius":{"types":['number'], "default":0},
+    "border-width":{"types":['number'], "default":0},
+    "border-color":{"types":['rgbvalue'], "default":None},
 }
 
 ##################
@@ -94,12 +95,15 @@ class Element:
     children_allowed:bool
     required={}
     surf:pg.Surface
+    surf_rect:pg.Rect
+    computed_styles:dict
 
     def __init__(self, type_:str, parent_id:str|None, style:dict[str,str]={}, id_:str=None, scoped_styles:dict={}, children_allowed:bool=True):
         self.type = type_
         self.id = id_
         self.parent_id:str = parent_id
         self.children = []
+        self.computed_styles = {}
         self.style = style
         self.scoped_styles = scoped_styles
         self.children_allowed = children_allowed
@@ -123,10 +127,17 @@ class Element:
         #I just thought it would be easier to store the surface data with the rest of the data
         if not self.surf:
             raise Error(f"Element of ID {self.id} gets surface called before defined")
-        return self.surf
+        return {'surf':self.surf,'rect':self.surf_rect}
     
-    def set_surface(self, surface:pg.Surface):
+    def set_surface(self, surface:pg.Surface, surf_rect:pg.Rect):
         self.surf = surface
+        self.surf_rect = surf_rect
+    
+    def get_computed_styles(self):
+        if len(list(self.computed_styles.keys())) == 0:
+            raise SyntaxError(msg="Computed styles accessed before initialized")
+        else:
+            return self.computed_styles
 
 class ImageElement(Element):
     image_path:str

@@ -6,7 +6,7 @@
 ;$textState < 'warblerrreuios'
 
 
->frame id='welcome'
+>frame id='welcome' style='height:90%/width:50%/background:(255,0,0)/top:5%/left:10%'
     >div class='abc' style='width:100/height:$$heightState' id='abc'
     
         >text id='hi' modifiable='False'
