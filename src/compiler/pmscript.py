@@ -127,7 +127,6 @@ class Element:
     
     def set_surface(self, surface:pg.Surface):
         self.surf = surface
-    
 
 class ImageElement(Element):
     image_path:str
@@ -164,6 +163,7 @@ class FrameElement(Element):
         super().__init__('frame', parent_id, style, id_, {}, True)
 
 
+#############################
 
 class State: 
     # So this state function will work by being defined inside of the compiledfiles with an initial value
